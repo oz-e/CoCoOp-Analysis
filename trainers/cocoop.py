@@ -1,3 +1,4 @@
+import os
 import os.path as osp
 from collections import OrderedDict
 import math
@@ -274,6 +275,11 @@ class CoCoOp(TrainerX):
         if (self.batch_idx + 1) == self.num_batches:
             self.update_lr()
 
+        if not hasattr(self, "all_prompts"):
+            self.all_prompts = []
+        
+        self.all_prompts.append(self.model.prompt_learner.final_prompt)
+
         return loss_summary
 
     def parse_batch_train(self, batch):
@@ -316,3 +322,11 @@ class CoCoOp(TrainerX):
             print("Loading weights to {} " 'from "{}" (epoch = {})'.format(name, model_path, epoch))
             # set strict=False
             self._models[name].load_state_dict(state_dict, strict=False)
+
+    def after_train(self):
+        if hasattr(self, "all_prompts"):
+            all_prompts = torch.cat(self.all_prompts, dim=0)
+            os.makedirs("prompt_outputs", exist_ok=True)
+            torch.save(all_prompts, "prompt_outputs/cocoop_prompts.pt")
+            print(f"{all_prompts.shape[0]} prompts saved to 'prompt_outputs/cocoop_prompts.pt'")
+
